@@ -51,14 +51,17 @@ if (dossierBytes > 1572864) throw new Error(`dossier.json is ${dossierBytes} byt
 
 // The platform collects /output as another user than the one this program
 // runs as, so every output must be readable by everyone: files 0644,
-// folders 0755, whatever the umask here is.
-function makeWorldReadable(dir) {
-  chmodSync(dir, 0o755);
+// folders 0755, whatever the umask here is. The output directory itself is
+// NOT ours to chmod: the grader mounts it owned by root while this program
+// runs as user 65534, so chmod on it throws EPERM and fails the run (exit 1).
+// Only the entries we created inside it get chmodded.
+function makeWorldReadable(dir, isRoot = false) {
+  if (!isRoot) chmodSync(dir, 0o755);
   for (const entry of readdirSync(dir)) {
     const path = join(dir, entry);
     if (statSync(path).isDirectory()) makeWorldReadable(path);
     else chmodSync(path, 0o644);
   }
 }
-makeWorldReadable(out);
+makeWorldReadable(out, true);
 console.log(`wrote ${dossierPath} (${dossierBytes} bytes) with ${shots.length} screenshots`);
